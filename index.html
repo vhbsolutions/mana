@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Maná</title>
 <meta name="description" content="Maná — estudo bíblico diário.">
+<script>
+  // Links de recuperação de senha que chegam aqui (o "Site URL" do Supabase)
+  // seguem para a página de nova senha, levando o código junto.
+  if (/type=recovery|error_description/.test(location.hash + location.search)) {
+    location.replace('nova-senha.html' + location.search + location.hash);
+  }
+</script>
 <style>
   :root { --fundo:#FBF8F2; --texto:#1F1B16; --texto-suave:#4A4237; --destaque:#1E4E6B; }
   @media (prefers-color-scheme: dark) { :root { --fundo:#121417; --texto:#F1ECE3; --texto-suave:#CFC6B8; --destaque:#9CCBE6; } }
