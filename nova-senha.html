@@ -64,6 +64,14 @@
   .erro { color: #8A2E1E; }
   @media (prefers-color-scheme: dark) { .erro { color: #F2A58F; } }
   [hidden] { display: none !important; }
+  .campo { position: relative; }
+  .campo input { width: 100%; box-sizing: border-box; padding-right: 84px; }
+  .ver { position: absolute; right: 4px; top: 4px; bottom: 4px; min-width: 72px; min-height: 0; background: transparent; color: var(--destaque); border-radius: 8px; }
+  .dica { margin: -4px 0 0; font-size: 0.95rem; }
+  .ok { color: #2F6B4F; }
+  @media (prefers-color-scheme: dark) { .ok { color: #9FD8B8; } }
+  input.errado { border-color: #8A2E1E; }
+  @media (prefers-color-scheme: dark) { input.errado { border-color: #F2A58F; } }
 </style>
 </head>
 <body>
@@ -80,9 +88,17 @@
 <form id="form" hidden>
   <p>Escolha uma senha com pelo menos 6 caracteres.</p>
   <label for="senha">Nova senha</label>
-  <input id="senha" type="password" autocomplete="new-password" minlength="6" required>
+  <div class="campo">
+    <input id="senha" type="password" autocomplete="new-password" minlength="6" required aria-describedby="dica1">
+    <button type="button" class="ver" data-alvo="senha" aria-label="Mostrar a nova senha" aria-pressed="false">Ver</button>
+  </div>
+  <p id="dica1" class="dica" aria-live="polite"></p>
   <label for="senha2">Repita a nova senha</label>
-  <input id="senha2" type="password" autocomplete="new-password" minlength="6" required>
+  <div class="campo">
+    <input id="senha2" type="password" autocomplete="new-password" minlength="6" required aria-describedby="dica2">
+    <button type="button" class="ver" data-alvo="senha2" aria-label="Mostrar a senha repetida" aria-pressed="false">Ver</button>
+  </div>
+  <p id="dica2" class="dica" aria-live="polite"></p>
   <p id="erro" class="erro" role="alert" hidden></p>
   <button id="botao" type="submit">Salvar nova senha</button>
 </form>
@@ -124,12 +140,58 @@
     $('senha').focus();
   });
 
+  // Ver / Ocultar: numa senha NOVA a pessoa precisa conferir o que digitou.
+  Array.prototype.forEach.call(document.querySelectorAll('.ver'), function (b) {
+    b.addEventListener('click', function () {
+      var campo = $(b.getAttribute('data-alvo'));
+      var mostrar = campo.type === 'password';
+      campo.type = mostrar ? 'text' : 'password';
+      b.textContent = mostrar ? 'Ocultar' : 'Ver';
+      b.setAttribute('aria-pressed', mostrar ? 'true' : 'false');
+      campo.focus();
+    });
+  });
+
+  // Aviso enquanto digita: tamanho mínimo na primeira; na segunda, se bate
+  // com a primeira — avisa assim que a segunda chega ao tamanho da primeira,
+  // e não a cada letra do meio do caminho.
+  function conferir(final) {
+    var s1 = $('senha').value, s2 = $('senha2').value;
+    var d1 = $('dica1'), d2 = $('dica2');
+    d1.className = 'dica'; d2.className = 'dica'; d1.textContent = ''; d2.textContent = '';
+    $('senha').classList.remove('errado'); $('senha2').classList.remove('errado');
+    var valido = true;
+    if (s1 && s1.length < 6) {
+      valido = false;
+      if (final || s1.length >= 1) { d1.textContent = 'Faltam ' + (6 - s1.length) + ' caractere(s) para o mínimo de 6.'; d1.className = 'dica erro'; }
+    }
+    if (s2) {
+      if (s2 === s1 && s1.length >= 6) { d2.textContent = '✓ As duas senhas são iguais.'; d2.className = 'dica ok'; }
+      else if (s2 !== s1 && (final || s2.length >= s1.length)) {
+        valido = false;
+        d2.textContent = 'As duas senhas não são iguais. Confira o que você digitou.';
+        d2.className = 'dica erro';
+        $('senha2').classList.add('errado');
+      } else if (s2 !== s1) { valido = false; }
+    } else { valido = false; }
+    if (!s1) valido = false;
+    return valido;
+  }
+  $('senha').addEventListener('input', function () { conferir(false); });
+  $('senha2').addEventListener('input', function () { conferir(false); });
+  $('senha2').addEventListener('blur', function () { if ($('senha2').value) conferir(true); });
+
   $('form').addEventListener('submit', function (e) {
     e.preventDefault();
-    var s1 = $('senha').value, s2 = $('senha2').value;
+    var s1 = $('senha').value;
     $('erro').hidden = true;
-    if (s1.length < 6) { $('erro').textContent = 'A senha precisa ter pelo menos 6 caracteres.'; $('erro').hidden = false; return; }
-    if (s1 !== s2) { $('erro').textContent = 'As duas senhas não são iguais.'; $('erro').hidden = false; return; }
+    if (!conferir(true)) {
+      $('erro').textContent = s1.length < 6
+        ? 'A senha precisa ter pelo menos 6 caracteres.'
+        : 'As duas senhas precisam ser iguais.';
+      $('erro').hidden = false;
+      return;
+    }
     $('botao').disabled = true;
     $('botao').textContent = 'Salvando…';
     client.auth.updateUser({ password: s1 }).then(function (r) {
